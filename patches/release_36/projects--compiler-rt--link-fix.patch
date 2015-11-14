@@ -1,0 +1,27 @@
+From 6111c493c91489264a6e1cab34fdb79db1d9859e Mon Sep 17 00:00:00 2001
+From: Stanley Halka <stan.halka@gmail.com>
+Date: Fri, 13 Nov 2015 15:29:14 -0800
+Subject: [PATCH] Disable iossim build to fix linker errors
+
+---
+ CMakeLists.txt | 4 +++-
+ 1 file changed, 3 insertions(+), 1 deletion(-)
+
+diff --git a/CMakeLists.txt b/CMakeLists.txt
+index f8f5263..fbc84e8 100644
+--- a/CMakeLists.txt
++++ b/CMakeLists.txt
+@@ -304,7 +304,9 @@ if(APPLE)
+          MACOSX_VERSION_MIN_FLAG "${CMAKE_CXX_FLAGS}")
+   set(SANITIZER_COMMON_SUPPORTED_DARWIN_OS osx)
+   if (IOSSIM_SDK_DIR AND NOT MACOSX_VERSION_MIN_FLAG)
+-    list(APPEND SANITIZER_COMMON_SUPPORTED_DARWIN_OS iossim)
++    # Disable iOS Simulator build because it clashes with the architecture of
++    # dependent libraries, such libc++abi and libc++.
++    # list(APPEND SANITIZER_COMMON_SUPPORTED_DARWIN_OS iossim)
+   endif()
+ 
+   set(SANITIZER_MIN_OSX_VERSION 10.7)
+-- 
+1.9.1
+

@@ -1,8 +1,4 @@
 #! /usr/bin/env bash
-#
-# TODO:
-#    - Try adding lldb once again.
-
 OS=`uname`
 if [ "$OS" == "Linux" ]; then
     triple=""
@@ -65,6 +61,8 @@ parallelism=1              # The value X to pass to make -j X to build in parall
 buildtype=RelWithDebInfo   # LLVM/clang build type.
 mode=install               # Install from scratch.
 targets=host               # LLVM_TARGETS_TO_BUILD ("all" builds them all).
+branch=unsupported         # Specific branch of clang to install (currently supported: release_35,release_36)
+cherrypick=""
 
 if eval ${cxx} --version | grep -q clang; then
     perform_stage0=0
@@ -79,22 +77,23 @@ usage()
     printf "Usage: %s [<options>] <install-prefix>\n" $(basename $0)
     echo ""
     echo "Available options:"
-    echo "    -A         enables assertions in LLVM libraries"
-    echo "    -b         build type (Release, Debug, RelWithDebInfo) [default: ${buildtype}]"
-    echo "    -c         skip cloning repositories, assume they are in place"
-    echo "    -C         clean up after build by deleting the LLVM/clang source/build directories"
-    echo "    -h|-?      display this help"
-    echo "    -j <n>     build with <n> threads in parallel [default: ${parallelism}]"
-    echo "    -m         use git/master instead of preconfigured versions"
-    echo "    -s <stage> begin build from <stage> [0, 1, 2]"
-    echo "    -u         update an existing build in <prefix> instead of installing new"
+    echo "    -A          enables assertions in LLVM libraries"
+    echo "    -b          build type (Release, Debug, RelWithDebInfo) [default: ${buildtype}]"
+    echo "    -c          skip cloning repositories, assume they are in place"
+    echo "    -C          clean up after build by deleting the LLVM/clang source/build directories"
+    echo "    -h|-?       display this help"
+    echo "    -j <n>      build with <n> threads in parallel [default: ${parallelism}]"
+    echo "    -k <branch> branch of clang to install"
+    echo "    -m          use git/master instead of preconfigured versions (overrides specified branch)"
+    echo "    -s <stage>  begin build from <stage> [0, 1, 2]"
+    echo "    -u          update an existing build in <prefix> instead of installing new"
     echo ""
     echo "Environment variables:"
-    echo "    CC         path to the C compiler for bootstrapping"
-    echo "    CXX        path to the C++ compiler for bootstrapping"
+    echo "    CC          path to the C compiler for bootstrapping"
+    echo "    CXX         path to the C++ compiler for bootstrapping"
 }
 
-while getopts "Ab::j:lms:ucCh?" opt ; do
+while getopts "Ab::j:k:lms:ucCh?" opt ; do
     case "$opt" in
         c)
             perform_clone=0
@@ -108,6 +107,19 @@ while getopts "Ab::j:lms:ucCh?" opt ; do
             ;;
         j)
             parallelism=$OPTARG
+            ;;
+        k)
+            for i in ("release_35" "release_36")
+            do
+                if [ "$OPTARG" == "$i" ]; then
+                    branch="$OPTARG"
+                fi
+            done
+
+            if [ "$branch" == "unsupported" ]; then
+                echo 'specified branch is not supported. must be in [release_35,release_36].'
+                exit 1
+            fi
             ;;
         m)
             use_master=1
@@ -150,22 +162,30 @@ prefix=`echo $1 | sed 's#/$##'`
 shift
 
 if [ "${use_master}" != "1" ]; then
-    # git version to checkout.
-    version_llvm=release_35
-    version_clang=release_35
-    version_libcxx=release_35
-    version_compilerrt=release_35
-    version_libcxxabi=239a032       # No 3.5 branch. Hardcoding.
-    version_lldb=master             # No 3.5 branch. Probably won't work.
-    version_lld=master              # No 3.5 branch. Probably won't work.
-    version_extra=release_35
+    echo "checking out branch of clang to install: $branch"
+    version_llvm="$branch"
+    version_clang="$branch"
+    version_libcxx="$branch"
+    version_compilerrt="$branch"
+    version_libcxxabi="$branch"
+    version_extra="$branch"
+    version_lldb="$branch"
 
-    cherrypick="projects/libcxx 0c6d1a88 e515bbda f2e8c0454"  # Fix linking against in-tree libc++abi.
-    cherrypick="$cherrypick;/ 168d0c143"  # Correctly add libc++abi to project list.
-    cherrypick="$cherrypick;/ d9aaca0ec"  # Fix libc++abi build on FreeBSD.
+    if [ "$branch" == "release_35" ]; then
+        # No 3.5 branch of libcxxabi (but there is a 3.6)
+        version_libcxxabi=239a032
+    fi
+    # No 3.5 or 3.6 branches of lld.    
+    version_lld=master
 
+    if [ "$branch" == "release_35" ]; then
+        # these commits have been merged in release_36
+        cherrypick="projects/libcxx 0c6d1a88 e515bbda f2e8c0454"  # [libcxx] Fix linking against in-tree libc++abi.
+        cherrypick="$cherrypick;/ 168d0c143"  # [llvm] Correctly add libc++abi to project list.
+        cherrypick="$cherrypick;/ d9aaca0ec"  # [llvm] Fix libc++abi build on FreeBSD.
+    fi
 else
-    # git version to checkout.
+    echo "checking out branch of clang to install: $branch"
     version_llvm=master
     version_clang=master
     version_libcxx=master
@@ -269,11 +289,12 @@ function apply_patch
 
 #### Clone reposistories.
 
-export GIT_COMMITTER_EMAIL="`whoami`@localhost"
-export GIT_COMMITTER_NAME="`whoami`"
+# ==> need to do a better job of checking git configuration
+# export GIT_COMMITTER_EMAIL="`whoami`@localhost"
+# export GIT_COMMITTER_NAME="`whoami`"
 
 d=`dirname $0`
-patches=`cd $d; pwd`/patches
+patches=`cd $d; pwd`/patches/$branch
 
 if [ "${perform_clone}" == "1" ]; then
 
@@ -361,11 +382,11 @@ if [ "${perform_clone}" == "1" ]; then
 
     # Apply any patches we might need.
     for i in $patches/*; do
+        echo "applying patch: $i"
         apply_patch $i
     done
 
     echo === Done applying patches
-
 fi
 
 if [ "$OS" == "Darwin" ]; then

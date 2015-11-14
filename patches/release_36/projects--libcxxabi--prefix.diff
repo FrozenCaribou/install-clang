@@ -1,0 +1,40 @@
+From 253482d17a66c7940ec554bf46c67cc19a68ace0 Mon Sep 17 00:00:00 2001
+From: Stanley Halka <stan.halka@gmail.com>
+Date: Fri, 13 Nov 2015 15:56:34 -0800
+Subject: [PATCH] Adapting library's install_name on Darwin to installation prefix
+
+---
+ src/CMakeLists.txt | 6 ++++--
+ 1 file changed, 4 insertions(+), 2 deletions(-)
+
+diff --git a/src/CMakeLists.txt b/src/CMakeLists.txt
+index 5c9e38b..385d2c5 100644
+--- a/src/CMakeLists.txt
++++ b/src/CMakeLists.txt
+@@ -77,12 +77,13 @@ if ( APPLE )
+     list(APPEND LIBCXXABI_LINK_FLAGS
+       "-compatibility_version 1"
+       "-current_version 1"
+-      "-install_name /usr/lib/libc++abi.1.dylib"
++      "-install_name ${CMAKE_INSTALL_PREFIX}/lib/libc++abi.1.dylib"
+       "/usr/lib/libSystem.B.dylib")
+   else()
+     list(APPEND LIBCXXABI_LINK_FLAGS
+       "-compatibility_version 1"
+-      "-install_name /usr/lib/libc++abi.1.dylib")
++      "-install_name ${CMAKE_INSTALL_PREFIX}/lib/libc++abi.1.dylib"
++      "-nodefaultlibs")
+   endif()
+ endif()
+ 
+@@ -96,6 +97,7 @@ set_target_properties(cxxabi
+     OUTPUT_NAME   "c++abi"
+     VERSION       "1.0"
+     SOVERSION     "1"
++    INSTALL_NAME_DIR "${CMAKE_INSTALL_PREFIX}/lib"
+   )
+ 
+ install(TARGETS cxxabi
+-- 
+1.9.1
+
