@@ -31,6 +31,7 @@ To see the available options, use `-h`:
         -m         use git/master instead of preconfigured versions
         -s <stage> begin build from <stage> [0, 1, 2]
         -u         update an existing build in <prefix> instead of installing new
+	-k	   Select the clang release to build (release_35, release_36)
 
     Environment variables:
         CC         path to the C compiler for bootstrapping
