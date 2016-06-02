@@ -58,9 +58,9 @@ perform_extra_build=1      # If 1, attempt to build clang-extra tools.
 perform_cleanup=0          # If 1, delete all source and build directories.
 assertions=off             # If "on", enable LLVM assertions.
 parallelism=1              # The value X to pass to make -j X to build in parallel.
-buildtype=RelWithDebInfo   # LLVM/clang build type.
+buildtype=Release   # LLVM/clang build type.
 mode=install               # Install from scratch.
-targets=host               # LLVM_TARGETS_TO_BUILD ("all" builds them all).
+targets=all               # LLVM_TARGETS_TO_BUILD ("all" builds them all).
 branch=unsupported         # Specific branch of clang to install (currently supported: release_35,release_36)
 cherrypick=""
 
@@ -83,7 +83,7 @@ usage()
     echo "    -C          clean up after build by deleting the LLVM/clang source/build directories"
     echo "    -h|-?       display this help"
     echo "    -j <n>      build with <n> threads in parallel [default: ${parallelism}]"
-    echo "    -k <branch> branch of clang to install"
+    echo "    -k <branch> branch of clang to install (release_35, release_36)"
     echo "    -m          use git/master instead of preconfigured versions (overrides specified branch)"
     echo "    -s <stage>  begin build from <stage> [0, 1, 2]"
     echo "    -u          update an existing build in <prefix> instead of installing new"
@@ -109,7 +109,7 @@ while getopts "Ab::j:k:lms:ucCh?" opt ; do
             parallelism=$OPTARG
             ;;
         k)
-            for i in ("release_35" "release_36")
+            for i in "release_35" "release_36"
             do
                 if [ "$OPTARG" == "$i" ]; then
                     branch="$OPTARG"
@@ -419,6 +419,7 @@ CXX_stage0="$cxx"
 CXXFLAGS_stage0=""
 CMAKE_stage0="${CMAKE_stage0}"
 BUILD_TYPE_stage0=${buildtype}
+LDFLAGS_stage0=""
 
 # Stage 1 options. Compile against standard libraries.
 
@@ -432,6 +433,7 @@ fi
 
 CXXFLAGS_stage1=""
 BUILD_TYPE_stage1=${buildtype}
+LDFLAGS_stage1=""
 
 # Stage 2 options. Compile against our own libraries.
 
@@ -441,6 +443,7 @@ CFLAGS_stage2="-stdlib=libc++"
 CXXFLAGS_stage2="-stdlib=libc++"
 CMAKE_stage2="${CMAKE_stage2}"
 BUILD_TYPE_stage2=${buildtype}
+LDFLAGS_stage2="-lc++ -lc++abi -latomic -lpthread"
 
 #### Compile the stages.
 
@@ -463,7 +466,7 @@ for stage in 0 1 2; do
        CXX=`st CXX` \
        CFLAGS="`st CFLAGS`" \
        CXXFLAGS="`st CXXFLAGS`" \
-       LDFLAGS="${addl_ldflags}" \
+       LDFLAGS="${addl_ldflags} `st LDFLAGS`" \
        cmake -DCMAKE_BUILD_TYPE=`st BUILD_TYPE` \
              -DLLVM_REQUIRES_RTTI=1 \
              -DCMAKE_INSTALL_PREFIX=${prefix} \
