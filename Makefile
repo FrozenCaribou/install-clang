@@ -1,5 +1,5 @@
 
-IMAGE="rsmmr/clang:3.5"
+IMAGE="frozencaribou/clang:3.6"
 
 all:
 
